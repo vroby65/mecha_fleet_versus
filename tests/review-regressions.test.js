@@ -8,14 +8,15 @@ const { EventEmitter } = require("node:events");
 const rules = require("../public/rules");
 
 // Run the real server callbacks with deterministic state and no listening socket.
-function game(count=3, active=1) {
+function game(count=3, active=1, names=[], networkUnavailable=false) {
   const filename=path.join(__dirname,"..","server.js");
-  const server={listen(){}};
+  const server={listen(port,host,ready){if(networkUnavailable)ready();},address(){return {port:8080};}};
   const hub=new EventEmitter();
   hub.clients=new Set();
   const localRequire=createRequire(filename);
   const context=vm.createContext({
     require(id){
+      if(id==="os"&&networkUnavailable)return {networkInterfaces(){throw new Error("Unavailable");}};
       if(id==="http")return {createServer:()=>server};
       if(id==="ws")return {Server:function(){return hub;},OPEN:1};
       return localRequire(id);
@@ -29,7 +30,7 @@ function game(count=3, active=1) {
     const ws=new EventEmitter();
     ws.readyState=1;ws.send=()=>{};
     hub.clients.add(ws);hub.emit("connection",ws);
-    ws.emit("message",JSON.stringify({type:"join",name:"Pilot "+i}));
+    ws.emit("message",JSON.stringify({type:"join",name:names[i-1]??"Pilot "+i}));
     peers.push(ws);
   }
   peers[0].emit("message",JSON.stringify({action:"start"}));
@@ -99,4 +100,22 @@ test("surviving attacker keeps its turn after a counter",()=>{
   g.send(2,{action:"react",response:"counter",weapon:"gun"});
   assert.equal(g.state().activePlayer,1);
   assert.equal(g.state().winner,null);
+});
+
+test("malformed pilot names use a safe default",()=>{
+  const g=game(2,1,[{toString:null},["Pilot"]]);
+  assert.ok(g.state().started);
+  assert.match(g.state().log[0],/Pilota/);
+});
+test("malformed movement coordinates do not mutate the match",()=>{
+  const g=game();
+  for(const value of [{toString:null},{valueOf:null,toString:null},[],null,true,"2"]){
+    const before=g.state();
+    assert.doesNotThrow(()=>g.send(1,{action:"move",unitId:"p1-m1",x:value,y:1}));
+    assert.deepEqual(g.state(),before);
+  }
+});
+
+test("server starts even when network interface discovery is unavailable",()=>{
+  assert.ok(game(2,1,[],true).state().started);
 });

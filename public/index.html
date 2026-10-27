@@ -2,31 +2,43 @@
 <html lang="it">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1320">
   <title>Mecha Fleet: Versus</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header><div><div class="eyebrow">TACTICAL MECHA COMBAT</div><h1>MECHA FLEET <span>VERSUS</span></h1></div><div id="connection" class="pill">Connessione…</div></header>
+  <header>
+    <div class="brand"><span class="brandMark" aria-hidden="true">M<span>V</span></span><div><div class="eyebrow">TACTICAL FLEET COMMAND</div><h1>MECHA FLEET <span>VERSUS</span></h1></div></div>
+    <div id="connection" class="pill" role="status">Connessione…</div>
+  </header>
   <main>
     <section id="lobby" class="panel lobby">
-      <div><h2>Ingresso pilota</h2><p>Una stanza per 2–3 giocatori. Il primo giocatore è l'host. Chiudere o ricaricare la pagina durante la partita equivale alla resa.</p></div>
-      <label>Nome pilota <input id="name" maxlength="18" value="Pilota"></label>
-      <button id="join" disabled>Entra nella stanza</button>
-      <button id="start" disabled>Avvia partita (host)</button>
-      <p id="lobbyStatus" class="muted">Apri questa pagina su ogni PC usando l'indirizzo IP dell'host.</p>
-      <div id="players"></div>
+      <div class="eyebrow">BRIEFING / MULTIPLAYER LOCALE</div>
+      <h2>La tua flotta.<br>La tua strategia.</h2>
+      <p>Due Super Robot, quattro Real Robot, un Supporto e una Capital Ship. Difendi la nave ammiraglia e conquista il settore.</p>
+      <div class="lobbyFacts"><span><strong>2–3</strong> piloti</span><span><strong>20 × 20</strong> settore</span><span><strong>8</strong> unità a testa</span></div>
+      <label for="name">NOME PILOTA</label><input id="name" maxlength="18" value="Pilota" autocomplete="nickname">
+      <div class="lobbyButtons"><button id="join" disabled>Entra nella stanza →</button><button id="start" class="secondary" disabled>Avvia partita (host)</button></div>
+      <div id="players" aria-label="Piloti nella stanza"></div>
+      <p id="lobbyStatus" class="muted" role="status">Apri questa pagina su ogni PC usando l'indirizzo IP dell'host.</p>
+      <details><summary>Come si gioca</summary><p>Il primo pilota è l'host e avvia con almeno due giocatori. Seleziona un'unità dalla mappa o dalla flotta, poi scegli movimento, arma o skill. Il difensore sceglie sempre la reazione. Distruggi le Capital Ship avversarie per vincere.</p><p>Chiudere o ricaricare la pagina durante la partita equivale alla resa. La partita resta in memoria solo finché il server è attivo.</p></details>
     </section>
     <section id="game" class="game hidden">
-      <div class="boardWrap panel"><div class="boardHead"><div><h2>Settore 20 × 20</h2><p id="turnInfo">In attesa…</p></div><div class="legend"><span class="blue">● Alleati</span><span class="red">● Nemici</span></div></div><canvas id="board" width="800" height="800" aria-label="Mappa tattica"></canvas><div class="boardFoot"><span id="actionStatus" role="status">Seleziona un'unità e scegli un'azione.</span><button id="endTurn">Termina turno →</button></div></div>
+      <div class="boardWrap panel">
+        <div class="boardHead"><div><div class="eyebrow">OPERAZIONI / SETTORE 01</div><h2>Mappa tattica <span>20 × 20</span></h2><p id="turnInfo" role="status">In attesa…</p></div><span id="battleSummary" class="battleSummary"></span></div>
+        <div id="teamLegend" class="legend" aria-label="Colori delle flotte"></div>
+        <canvas id="board" width="800" height="800" aria-label="Mappa tattica: usa anche i pulsanti della flotta per selezionare le tue unità">Mappa di gioco: è necessario un browser con Canvas 2D.</canvas>
+        <div class="mapKey"><span><i class="moveKey"></i> Movimento</span><span><i class="rangeKey"></i> Gittata</span><span>Esc · annulla azione</span></div>
+        <div class="boardFoot"><span id="actionStatus" role="status">Seleziona un'unità e scegli un'azione.</span><button id="endTurn">Termina turno →</button></div>
+      </div>
       <aside class="side">
-        <section id="reactionPanel" class="panel hidden" role="group" aria-label="Difesa in combattimento"></section>
-        <section class="panel"><h2>Unità selezionata</h2><div id="unitInfo" class="muted">Seleziona un'unità sulla mappa.</div><div id="actions" class="actions"></div></section>
-        <section class="panel"><h2>Flotte</h2><div id="fleet"></div></section>
-        <section class="panel"><h2>Registro tattico</h2><div id="log" class="log"></div></section>
+        <section id="reactionPanel" class="panel hidden" role="group" aria-label="Difesa in combattimento" aria-live="polite"></section>
+        <section class="panel unitPanel"><div class="eyebrow">01 / COMANDI</div><h2>Unità selezionata</h2><div id="unitInfo" class="muted">Seleziona un'unità sulla mappa o dalla tua flotta.</div><div id="actions" class="actions"></div></section>
+        <section class="panel"><div class="eyebrow">02 / FLOTTA</div><h2>Le tue unità</h2><div id="fleet"></div></section>
+        <section class="panel"><div class="eyebrow">03 / TRASMISSIONI</div><h2>Registro tattico</h2><div id="log" class="log"></div></section>
       </aside>
     </section>
   </main>
-  <footer>Prototipo 0.2 · Canvas 2D · WebSocket · Turni di squadra</footer>
-  <script src="movement.js"></script><script src="rules.js"></script>
-  <script src="client.js"></script>
-
-</body></html>
+  <footer>MECHA FLEET: VERSUS <span>Prototipo 0.2 · Turni di squadra · Nessun account richiesto</span></footer>
+  <script src="movement.js"></script><script src="rules.js"></script><script src="client.js"></script>
+</body>
+</html>

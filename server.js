@@ -186,7 +186,7 @@ function handleAction(p,msg) {
   if(!validActor(p,u))return;
   if(msg.action==="move"){
     if(u.moved||u.move<=0)return;
-    const x=Number(msg.x),y=Number(msg.y);
+    const x=msg.x,y=msg.y;
     if(!Number.isInteger(x)||!Number.isInteger(y)||x<0||x>=20||y<0||y>=20||occupied(x,y,u.id))return;
     if(!reachableCells(u,state.units).some(cell=>cell.x===x&&cell.y===y))return;
     u.x=x;u.y=y;u.moved=true;log(`${u.name} si sposta.`);publish();return;
@@ -242,7 +242,7 @@ wss.on("connection", ws => {
     if (msg.type==="join") {
       if (sockets.get(ws)) return;
       if (players.length>=3 || (state && state.started)) { send(ws,{type:"error",message:"Stanza piena o partita già iniziata."}); return; }
-      const p={id:nextPlayerId++,name:String(msg.name||"Pilota").slice(0,18),team:players.length,ws};
+      const p={id:nextPlayerId++,name:(typeof msg.name==="string"?msg.name.trim().slice(0,18):"")||"Pilota",team:players.length,ws};
       players.push(p); sockets.set(ws,p.id);
       send(ws,{type:"joined",playerId:p.id});
       log;
@@ -281,6 +281,8 @@ wss.on("connection", ws => {
 server.listen(PORT,"0.0.0.0",()=>{
   const port=server.address().port;
   console.log(`Mecha Fleet Versus: http://localhost:${port}`);
-  const nets=os.networkInterfaces();
+  let nets;
+  try { nets=os.networkInterfaces(); }
+  catch { console.warn("Indirizzi LAN non disponibili; il server resta attivo."); return; }
   for(const list of Object.values(nets)) for(const n of (list||[])) if(n.family==="IPv4"&&!n.internal) console.log(`LAN: http://${n.address}:${port}`);
 });

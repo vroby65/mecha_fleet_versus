@@ -8,11 +8,14 @@ const vm = require("node:vm");
 // senza simulare il layout o il rendering di un browser.
 function client() {
   const elements = new Map();
+  const listeners={};
   function element() {
     let html = "";
     return {
       textContent: "", value: "Pilota", disabled: false, style: {}, children: [],
       classList: { add() {}, remove() {} },
+      setAttribute(name,value) { this[name]=String(value); },
+      focus() { this.focused=true; },
       get innerHTML() { return html; },
       set innerHTML(value) { html = value; this.children = []; },
       appendChild(child) { this.children.push(child); },
@@ -38,7 +41,7 @@ function client() {
     send(message) { this.messages.push(JSON.parse(message)); }
   }
   const context = vm.createContext({
-    document: { getElementById: get, createElement: element },
+    document: { getElementById: get, createElement: element, addEventListener(event,handler) { listeners[event]=handler; } },
     location: { protocol: "http:", host: "localhost:8080" }, WebSocket: Socket
   });
   for (const file of ["movement.js", "rules.js", "client.js"]) {
@@ -48,7 +51,7 @@ function client() {
   const receive = data => ws.onmessage({ data: JSON.stringify(data) });
   const open = () => { ws.readyState = Socket.OPEN; ws.onopen(); };
   const clickCell = (x, y) => canvas.click({ clientX: 11 + (x + 0.5) * 20, clientY: 21 + (y + 0.5) * 20 });
-  return { get, ws, receive, open, clickCell, read: expression => vm.runInContext(expression, context) };
+  return { get, ws, receive, open, clickCell, key:key=>listeners.keydown({key}), read: expression => vm.runInContext(expression, context) };
 }
 
 function started(client) {
@@ -156,4 +159,48 @@ test("le skill personali consumano un comando dedicato e le speciali richiedono 
   c.get("actions").children.find(x=>x.textContent.includes("Aim")).click();
   assert.equal(c.ws.messages.at(-1).action,"skill");
   assert.equal(c.ws.messages.at(-1).skill,"aim");
+});
+
+test("fleet buttons select living units and disable destroyed units",()=>{
+  const c=client();
+  const {state,players}=started(c);
+  state.units.push({...state.units[0],id:"dead",hp:0});
+  c.receive({type:"state",state,players});
+  const rows=c.get("fleet").children;
+  assert.equal(rows.length,2);
+  assert.equal(rows[1].disabled,true);
+  rows[0].click();
+  assert.equal(c.read("selected"),"p1-m1");
+});
+test("pending attacks clear armed targeting; disconnected defense is disabled",()=>{
+  const c=client();
+  const {state,players}=started(c);
+  c.clickCell(2,1);
+  c.get("actions").children.find(b=>b.textContent.includes("Laser")).click();
+  state.pendingAttack={attackerId:"p2-m1",targetId:"p1-m1",defenderOwner:1,weapon:"melee"};
+  c.receive({type:"state",state,players});
+  assert.equal(c.read("mode"),null);
+  c.ws.readyState=3;
+  c.ws.onclose();
+  assert.ok(c.get("reactionPanel").children.filter(x=>x.onclick).every(x=>x.disabled));
+});
+
+test("Escape cancels targeting without sending a command",()=>{
+  const c=client();
+  started(c);c.clickCell(2,1);
+  c.get("actions").children.find(b=>b.textContent.includes("Laser")).click();
+  assert.equal(c.read("mode"),"armAttack:laser");
+  c.key("Escape");
+  assert.equal(c.read("mode"),null);
+  assert.equal(c.ws.messages.length,0);
+  assert.match(c.get("actionStatus").textContent,/annullata/);
+});
+test("fleet and team legend escape player-controlled names",()=>{
+  const c=client();
+  const {state,players}=started(c);
+  state.units[0].name="<img src=x onerror=alert(1)>";
+  players[0].name="<script>bad</script>";
+  c.receive({type:"state",state,players});
+  assert.match(c.get("fleet").children[0].innerHTML,/&lt;img/);
+  assert.match(c.get("teamLegend").innerHTML,/&lt;script/);
 });

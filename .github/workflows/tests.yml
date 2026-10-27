@@ -1,7 +1,7 @@
 name: Node tests
 on:
   push:
-    branches: [feat/srw-combat-skills-rebalance]
+    branches: [main, "feat/**", "fix/**"]
   pull_request:
 jobs:
   test:

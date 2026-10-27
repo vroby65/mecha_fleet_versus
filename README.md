@@ -76,3 +76,18 @@ un DOM minimale, senza coprire la resa grafica nel browser.
 
 ## Manutenzione
 Le istruzioni per modificare, verificare e aggiornare il progetto sono in [AGENTS.md](AGENTS.md).
+
+## Interfaccia tattica e robustezza
+- La flotta è selezionabile anche da tastiera tramite i pulsanti delle unità; le unità distrutte restano visibili e sono disabilitate.
+- Scegli **Muovi** per vedere le caselle raggiungibili, oppure un'arma per vedere la gittata e i nemici attaccabili. Premi **Esc** o riclicca l'unità per annullare.
+- La legenda usa i colori effettivi di ogni giocatore; il pannello mostra HP, movimento e azione della propria flotta. Su schermi piccoli, la scelta della reazione viene portata prima della mappa.
+- La mappa mantiene il controllo tramite clic: la selezione da flotta non equivale a una navigazione completa della griglia da tastiera.
+- Le coordinate di movimento devono essere numeri interi JSON; stringhe, array e oggetti vengono ignorati. Nomi non testuali o vuoti diventano “Pilota”.
+- Se il sistema non consente di leggere gli indirizzi delle schede di rete, il server resta attivo e segnala che non può stampare gli indirizzi LAN.
+- La CI esegue i test sulle PR e sui push a main e ai branch feat/ e fix/.
+
+### Prossimi miglioramenti proposti
+1. **Timeout della reazione**, con scadenza visibile e difesa automatica concordata: evita attese indefinite quando il difensore resta connesso ma non risponde.
+2. **Codici stanza e riconnessione**, con sessioni verificabili e finestra di recupero: più partite indipendenti senza perdere la flotta a un breve distacco.
+3. **Griglia da tastiera e descrizioni delle skill**, con focus visibile e riepilogo del bersaglio prima dell'invio.
+4. **Salvataggio e replay degli eventi**, per riprodurre bug e valutare il bilanciamento con partite reali.

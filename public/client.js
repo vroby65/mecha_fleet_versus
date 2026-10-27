@@ -31,7 +31,7 @@ function connect(){
       $("lobbyStatus").textContent="Sei nella stanza. Aspetta gli altri piloti.";
     }
     if(m.type==="state"){
-      if(state?.activePlayer!==m.state?.activePlayer || m.state?.winner || !m.state){
+      if(state?.activePlayer!==m.state?.activePlayer || m.state?.winner || m.state?.pendingAttack || !m.state){
         mode=null;
         $("actionStatus").textContent="Seleziona un'unità e scegli un'azione.";
       }
@@ -79,6 +79,17 @@ function renderAll(){
         ?`Round ${state.round} · È il tuo turno`
         :`Round ${state.round} · Turno di ${players.find(p=>p.id===state.activePlayer)?.name||"avversario"}`;
 
+    $("turnInfo").setAttribute("data-active",state.activePlayer===myId&&!state.winner?"true":"false");
+    const pending=state.pendingAttack;
+    if(pending)$("actionStatus").textContent=pending.defenderOwner===myId
+      ?"Attacco in arrivo: scegli una difesa nel pannello reazione."
+      :"In attesa della reazione del difensore.";
+    $("battleSummary").textContent=state.winner?"Battaglia conclusa":
+      `Round ${state.round} · ${state.units.filter(u=>u.owner===myId&&u.hp>0).length}/${state.units.filter(u=>u.owner===myId).length} unità operative`;
+    $("teamLegend").innerHTML=players.map(p=>{
+      const color=state.units.find(u=>u.owner===p.id)?.color||"#9aacc0";
+      return `<span style="color:${color}">● ${esc(p.name)}${p.id===myId?" (tu)":""}</span>`;
+    }).join("");
     $("endTurn").disabled=!connected||state.activePlayer!==myId||!!state.winner||!!state.pendingAttack;
     draw();
     renderUnit();
@@ -93,21 +104,29 @@ function renderAll(){
   }
 }
 
-// Pannello opzionale della flotta.
+const unitTypes={ship:"Capital Ship",super:"Super Robot",real:"Real Robot",support:"Supporto"};
+function selectUnit(id){
+  const u=state?.units.find(unit=>unit.id===id&&unit.hp>0);
+  if(!u||state.pendingAttack||state.winner)return;
+  selected=id;mode=null;
+  draw();renderUnit();renderFleet();
+  $("actionStatus").textContent=u.owner===myId?"Unità alleata selezionata.":"Unità nemica selezionata.";
+}
 function renderFleet(){
-  const panel=$("fleet")||$("fleetList")||$("fleetInfo")||$("units");
-  if(!panel||!state||!Array.isArray(state.units))return;
-
-  const mine=state.units.filter(u=>u.owner===myId);
-  panel.innerHTML=mine.map(u=>`
-    <div class="playerRow">
-      <span>
-        <strong>${esc(u.name||(u.type==="ship"?"Capital Ship":u.type==="support"?"Supporto":"Mecha "+u.id))}</strong>
-        <br>HP: ${u.hp}/${u.maxHp}
-      </span>
-      <span>${u.hp>0?(u.acted?"Agito":"Disponibile"):"Distrutto"}</span>
-    </div>
-  `).join("");
+  const panel=$("fleet");
+  if(!panel||!state)return;
+  panel.innerHTML="";
+  for(const u of state.units.filter(unit=>unit.owner===myId)){
+    const row=document.createElement("button");
+    row.className="fleetRow"+(u.hp<=0?" dead":"")+(u.id===selected?" selected":"");
+    row.disabled=u.hp<=0||!!state.pendingAttack||!!state.winner;
+    row.setAttribute("aria-pressed",u.id===selected?"true":"false");
+    row.innerHTML=`<span><strong>${esc(u.name)}</strong><small>${unitTypes[u.type]||"Mecha"} · ${u.x+1}, ${u.y+1}</small>
+      <span class="bar hp"><i style="width:${100*u.hp/u.maxHp}%"></i></span></span>
+      <span class="fleetState">${u.hp>0?`${u.hp.toLocaleString("it-IT")} HP<br>${u.acted?"Azione usata":"Azione pronta"} · ${u.moved?"Mosso":"Mov. pronto"}`:"Distrutto"}</span>`;
+    row.onclick=()=>selectUnit(u.id);
+    panel.appendChild(row);
+  }
 }
 
 function esc(s){
@@ -138,10 +157,27 @@ function draw(){
 
   if(selected){
     const u=units.find(z=>z.id===selected);
-    if(u&&u.hp>0&&u.owner===myId&&state.activePlayer===myId&&!state.winner&&u.move>0&&!u.moved){
+    if(u&&u.hp>0&&u.owner===myId&&state.activePlayer===myId&&!state.winner&&!state.pendingAttack&&mode==="armMove"&&u.move>0&&!u.moved){
       ctx.fillStyle="#68b5ff22";
       for(const {x,y} of reachableCells(u,units)){
         ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+      }
+    }
+  }
+
+  const actor=units.find(u=>u.id===selected&&u.hp>0);
+  if(actor&&actor.owner===myId&&state.activePlayer===myId&&!state.pendingAttack&&!state.winner&&mode?.startsWith("armAttack:")){
+    const id=mode.slice(10),w=MechRules.weapon(actor,id);
+    if(w)for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+      const d=Math.abs(actor.x-x)+Math.abs(actor.y-y);
+      if(d>=w.min&&d<=w.max){
+        ctx.fillStyle="#efb56524";ctx.fillRect(x*TILE,y*TILE,TILE,TILE);
+      }
+    }
+    for(const target of units){
+      if(target.owner!==myId&&MechRules.canFire(actor,id,Math.abs(actor.x-target.x)+Math.abs(actor.y-target.y))){
+        ctx.strokeStyle="#ffb86b";ctx.lineWidth=2;
+        ctx.strokeRect(target.x*TILE+3,target.y*TILE+3,34,34);
       }
     }
   }
@@ -183,7 +219,7 @@ function draw(){
 
     ctx.fillStyle="#05090e";
     ctx.fillRect(x+4,y+34,32,4);
-    ctx.fillStyle="#65d995";
+    ctx.fillStyle=u.hp/u.maxHp<.3?"#ff7272":u.hp/u.maxHp<.6?"#e8bb68":"#65d995";
     ctx.fillRect(x+4,y+34,32*(u.hp/u.maxHp),4);
 
     ctx.fillStyle="#e8f0fa";
@@ -210,7 +246,7 @@ function renderUnit(){
   if(!u){box.innerHTML='<span class="muted">Seleziona un’unità sulla mappa.</span>';return;}
   const statuses=Object.entries(u.status||{}).filter(([,active])=>active).map(([name])=>name).join(", ")||"nessuno";
   box.innerHTML=`
-    <strong>${esc(u.name)}</strong> · ${u.owner===myId?"Alleata":"Nemica"} · ${esc(u.type)}
+    <div class="unitTitle"><span class="eyebrow">${u.owner===myId?"UNITÀ ALLEATA":"UNITÀ NEMICA"} · ${unitTypes[u.type]||"Mecha"}</span><strong>${esc(u.name)}</strong></div>
     <div class="stat"><div class="statTop"><span>HP</span><span>${u.hp}/${u.maxHp}</span></div>
       <div class="bar hp"><i style="width:${100*u.hp/u.maxHp}%"></i></div></div>
     <div class="stat"><div class="statTop"><span>Energia</span><span>${u.en}/${u.maxEn}</span></div>
@@ -229,6 +265,7 @@ function renderUnit(){
   const add=(label,action,disabled=false)=>{
     const b=document.createElement("button");
     b.textContent=label;b.disabled=disabled;
+    b.className=action.startsWith("armAttack:")?"attackAction":"";
     b.onclick=()=>armMode(action);
     actions.appendChild(b);
   };
@@ -249,6 +286,7 @@ function renderUnit(){
     if((u.sp||0)<skill.cost)continue;
     const b=document.createElement("button");
     b.textContent=`${skill.label} (${skill.cost} SP)`;
+    b.className="skillAction";
     b.onclick=()=>{
       if(skill.target==="self"){
         send({action:"skill",unitId:u.id,skill:id});
@@ -270,12 +308,16 @@ function renderReaction(){
   const defender=state.units.find(u=>u.id===pending.targetId);
   if(!attacker||!defender)return;
   panel.classList.remove("hidden");
+  const heading=document.createElement("h2");
+  heading.textContent="Scegli la difesa";
+  panel.appendChild(heading);
   const label=document.createElement("p");
   label.textContent=`${attacker.name} attacca ${defender.name} con ${MechRules.weapon(attacker,pending.weapon)?.label||pending.weapon}. Scegli la difesa:`;
   panel.appendChild(label);
   function button(text,response,weapon){
     const b=document.createElement("button");
     b.textContent=text;
+    b.disabled=ws?.readyState!==WebSocket.OPEN;
     b.onclick=()=>send({action:"react",response,weapon});
     panel.appendChild(b);
   }
@@ -293,6 +335,7 @@ function armMode(m){
     armResupply:"Clicca un alleato entro 2 caselle.",
     armRepair:"Clicca un alleato da riparare entro 2 caselle."
   };
+  draw();
   if(m.startsWith("armAttack:")){
     const u=state?.units.find(z=>z.id===selected);
     const w=u&&MechRules.weapon(u,m.slice(10));
@@ -327,7 +370,7 @@ canvas.addEventListener("click",e=>{
     ws?.readyState === WebSocket.OPEN && state.activePlayer === myId && !state.winner;
 
   if (mode!==null && clicked?.id===selected) {
-    mode=null;
+    mode=null;draw();
     $("actionStatus").textContent="Azione annullata. Seleziona un'unità e scegli un'azione.";
     return;
   }
@@ -335,23 +378,13 @@ canvas.addEventListener("click",e=>{
   // La selezione deve funzionare anche durante il turno avversario.
   if (mode === null) {
     if (clicked) {
-      selected = clicked.id;
-      draw();
-      renderUnit();
-
-      if (typeof renderFleet === "function") {
-        renderFleet();
-      }
-
-      $("actionStatus").textContent =
-        clicked.owner === myId
-          ? "Unità alleata selezionata."
-          : "Unità nemica selezionata.";
+      selectUnit(clicked.id);
 
     } else {
       selected = null;
       draw();
       renderUnit();
+      renderFleet();
     }
 
     return;
@@ -439,4 +472,10 @@ canvas.addEventListener("click",e=>{
   $("actionStatus").textContent = "Azione inviata.";
 });
 
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&mode){
+    mode=null;draw();
+    $("actionStatus").textContent="Azione annullata. Seleziona un'unità e scegli un'azione.";
+  }
+});
 connect();

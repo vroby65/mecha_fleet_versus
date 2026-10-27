@@ -120,3 +120,10 @@ Arresta il server manuale con `Ctrl+C`.
 Nota sul codice preesistente: `public/client - Copia.js.old` è una copia non caricata
 dalla pagina; `currentPlayer()` nel server è inutilizzata. Non usarle come fonti
 attive né rimuoverle come pulizia estranea alla richiesta.
+
+## Interfaccia tattica
+- Le coordinate x/y del comando move sono numeri interi JSON; non effettuare coercizioni su input del client. I nomi non testuali usano il valore Pilota.
+- Mantieni selezione tramite flotta, annullamento con Esc e gittate coerenti con public/rules.js; le caselle di movimento usano public/movement.js.
+- La legenda rappresenta i colori effettivi delle tre flotte, non colori fissi per alleato/nemico.
+- I controlli di reazione devono disabilitarsi se il socket si chiude. La mappa non è ancora interamente navigabile da tastiera.
+- La stampa degli indirizzi LAN è informativa: un errore di os.networkInterfaces non deve terminare il server.
